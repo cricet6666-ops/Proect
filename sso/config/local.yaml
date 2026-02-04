@@ -1,5 +1,5 @@
 env: "local" # dev, prod
-storege_path: "./storege/sso.db"
+storage_path: "./storage/sso.db"
 token_ttl: 1h
 grpc:
   port: 44044
