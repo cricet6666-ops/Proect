@@ -4,6 +4,10 @@ tasks:
   generate:
     aliases:
     - gen
-    desc: "Generate code from proto files"
+    desc: "Generate table"
     cmds:
     - go run ./cmd/migrator --storage-path=./storage/sso.db --migrations-path=./migrations
+  run:
+    desc: "Start sso server"
+    cmds:
+      - go run ./cmd/sso/main.go --config=./config/local.yaml

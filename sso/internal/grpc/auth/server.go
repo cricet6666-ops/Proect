@@ -3,10 +3,10 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	ssov1 "PROECT/protos/gen/go/sso"
 	"PROECT/sso/internal/services/auth"
-	"PROECT/sso/internal/storage"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,7 +41,7 @@ const (
 	emptyValue = 0
 )
 
-func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponce, error) {
+func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.LoginResponse, error) {
 	if err := validateLogin(req); err != nil {
 		return nil, err
 	}
@@ -51,28 +51,28 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 	token, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), int(req.GetAppId()))
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
-			return nil, status.Error(codes.InvalidArgument, "invalidargument error")
+			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 		}
-		return nil, status.Error(codes.Internal, "internal error")
+		return nil, mapError(err)
 	}
 
-	return &ssov1.LoginResponce{
+	return &ssov1.LoginResponse{
 		Token: token,
 	}, nil
 }
 
-func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*ssov1.RegisterResponce, error) {
+func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*ssov1.RegisterResponse, error) {
 	if err := validateRegister(req); err != nil {
 		return nil, err
 	}
 	userID, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
-		if errors.Is(err, storage.ErrUserExists) {
+		if errors.Is(err, auth.ErrUserExists) {
 			return nil, status.Error(codes.AlreadyExists, "user already exists")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
 	}
-	return &ssov1.RegisterResponce{
+	return &ssov1.RegisterResponse{
 		UserId: userID,
 	}, nil
 }
@@ -84,7 +84,7 @@ func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ss
 
 	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, auth.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		return nil, status.Error(codes.Internal, "internal error")
@@ -96,15 +96,18 @@ func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ss
 }
 
 func validateLogin(req *ssov1.LoginRequest) error {
+	if req.GetAppId() == 0 {
+		fmt.Println("!!VaLIDATION TRIGGERED !!!")
+
+		return status.Error(codes.InvalidArgument, "app_id is required")
+	}
 	if req.GetEmail() == "" {
 		return status.Error(codes.InvalidArgument, "email is required")
 	}
 	if req.GetPassword() == "" {
 		return status.Error(codes.InvalidArgument, "password is required")
 	}
-	if req.GetAppId() == emptyValue {
-		return status.Error(codes.InvalidArgument, "app_id is required")
-	}
+
 	return nil
 }
 
@@ -125,4 +128,16 @@ func validateIsAdmin(req *ssov1.IsAdminRequest) error {
 	}
 
 	return nil
+}
+func mapError(err error) error {
+	if errors.Is(err, auth.ErrInvalidCredentials) {
+		return status.Error(codes.InvalidArgument, "invalid email or password")
+	}
+	if errors.Is(err, auth.ErrUserExists) {
+		return status.Error(codes.AlreadyExists, "user already exists")
+	}
+	if errors.Is(err, auth.ErrInvalidAppID) {
+		return status.Error(codes.InvalidArgument, "invalid app_id")
+	}
+	return status.Error(codes.Internal, err.Error())
 }

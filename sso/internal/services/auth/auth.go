@@ -17,6 +17,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidAppID       = errors.New("invalid app id")
 	ErrUserExists         = errors.New("user already exists")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
 type Auth struct {
@@ -82,16 +83,16 @@ func (a *Auth) Login(
 	user, err := a.usrProvider.User(ctx, email)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
-			a.log.Warn("user not found", err)
+			a.log.Warn("user not found", slog.String("error", err.Error()))
 
 			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 		}
-		a.log.Error("failed to get user", err)
+		a.log.Error("failed to get user", slog.String("error", err.Error()))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
-		a.log.Info("invalid credentials", err)
+		a.log.Info("invalid credentials", slog.String("error", err.Error()))
 
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
@@ -135,12 +136,11 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, pass string) (
 	id, err := a.usrSaver.SaveUser(ctx, email, passHash)
 	if err != nil {
 
-		if err != nil {
-			if errors.Is(err, storage.ErrUserExists) {
-				log.Warn("user already exists", "error", err)
+		if errors.Is(err, storage.ErrUserExists) {
+			log.Warn("user already exists", "error", err)
 
-				return 0, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
-			}
+			return 0, fmt.Errorf("%s: %w", op, ErrUserExists)
+
 		}
 
 		log.Error("failed to save user", "error", err)
@@ -168,7 +168,7 @@ func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 		if errors.Is(err, storage.ErrAppNotFound) {
 			log.Warn("user not found", "error", err)
 
-			return false, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+			return false, fmt.Errorf("%s: %w", op, err)
 		}
 		return false, fmt.Errorf("#{op}: #{err}")
 	}

@@ -33,7 +33,7 @@ func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (
 	const op = "storage.sqlite.SaveUser"
 
 	//Простенький запрос на добавление пользователя
-	stmt, err := s.db.Prepare("INSER INTO user(email, pass hash) VALUES(?, ?)")
+	stmt, err := s.db.Prepare("INSERT INTO users(email, pass_hash) VALUES(?, ?)")
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -109,7 +109,7 @@ func (s *Storage) IsAdmin(ctx context.Context, userID int64) (bool, error) {
 func (s *Storage) App(ctx context.Context, id int) (models.App, error) {
 	const op = "storage.sqlite.Apps"
 
-	stmt, err := s.db.Prepare("SELECT id, name, secret FROM users WHERE")
+	stmt, err := s.db.Prepare("SELECT id, name, secret FROM apps WHERE id = ?")
 	if err != nil {
 		return models.App{}, fmt.Errorf("%s: %w", op, err)
 	}
